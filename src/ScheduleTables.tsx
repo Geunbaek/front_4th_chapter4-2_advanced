@@ -1,11 +1,20 @@
 import { Button, ButtonGroup, Flex, Heading, Stack } from '@chakra-ui/react';
 import ScheduleTable from './ScheduleTable.tsx';
-import { useScheduleContext } from './ScheduleContext.tsx';
 import SearchDialog from './SearchDialog.tsx';
 import { useState } from 'react';
+import { useShallow } from 'zustand/shallow';
+import { useScheduleStore } from './schedule/index.ts';
 
 export const ScheduleTables = () => {
-  const { schedulesMap, setSchedulesMap } = useScheduleContext();
+  const { schedulesMap, removeSchedule, removeSchedules, duplicateSchedules } = useScheduleStore(
+    useShallow(state => ({
+      schedulesMap: state.schedulesMap,
+      removeSchedule: state.removeSchedule,
+      removeSchedules: state.removeSchedules,
+      duplicateSchedules: state.duplicateSchedules,
+    })),
+  );
+
   const [searchInfo, setSearchInfo] = useState<{
     tableId: string;
     day?: string;
@@ -13,20 +22,6 @@ export const ScheduleTables = () => {
   } | null>(null);
 
   const disabledRemoveButton = Object.keys(schedulesMap).length === 1;
-
-  const duplicate = (targetId: string) => {
-    setSchedulesMap(prev => ({
-      ...prev,
-      [`schedule-${Date.now()}`]: [...prev[targetId]],
-    }));
-  };
-
-  const remove = (targetId: string) => {
-    setSchedulesMap(prev => {
-      delete prev[targetId];
-      return { ...prev };
-    });
-  };
 
   return (
     <>
@@ -41,10 +36,10 @@ export const ScheduleTables = () => {
                 <Button colorScheme="green" onClick={() => setSearchInfo({ tableId })}>
                   시간표 추가
                 </Button>
-                <Button colorScheme="green" mx="1px" onClick={() => duplicate(tableId)}>
+                <Button colorScheme="green" mx="1px" onClick={() => duplicateSchedules(tableId)}>
                   복제
                 </Button>
-                <Button colorScheme="green" isDisabled={disabledRemoveButton} onClick={() => remove(tableId)}>
+                <Button colorScheme="green" isDisabled={disabledRemoveButton} onClick={() => removeSchedules(tableId)}>
                   삭제
                 </Button>
               </ButtonGroup>
@@ -54,12 +49,7 @@ export const ScheduleTables = () => {
               schedules={schedules}
               tableId={tableId}
               onScheduleTimeClick={timeInfo => setSearchInfo({ tableId, ...timeInfo })}
-              onDeleteButtonClick={({ day, time }) =>
-                setSchedulesMap(prev => ({
-                  ...prev,
-                  [tableId]: prev[tableId].filter(schedule => schedule.day !== day || !schedule.range.includes(time)),
-                }))
-              }
+              onDeleteButtonClick={({ day, time }) => removeSchedule(tableId, day, time)}
             />
           </Stack>
         ))}

@@ -29,11 +29,11 @@ import {
   VStack,
   Wrap,
 } from '@chakra-ui/react';
-import { useScheduleContext } from './ScheduleContext.tsx';
 import { Lecture } from './types.ts';
 import { parseSchedule } from './utils.ts';
 import { DAY_LABELS } from './constants.ts';
 import { useLecture } from './lecture/index.ts';
+import { useScheduleStore } from './schedule/index.ts';
 
 interface Props {
   searchInfo: {
@@ -84,7 +84,7 @@ const PAGE_SIZE = 100;
 
 // TODO: 이 컴포넌트에서 불필요한 연산이 발생하지 않도록 다양한 방식으로 시도해주세요.
 const SearchDialog = ({ searchInfo, onClose }: Props) => {
-  const { setSchedulesMap } = useScheduleContext();
+  const addSchedule = useScheduleStore(state => state.addSchedule);
 
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -136,7 +136,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
     loaderWrapperRef.current?.scrollTo(0, 0);
   };
 
-  const addSchedule = (lecture: Lecture) => {
+  const handleAddSchedule = (lecture: Lecture) => {
     if (!searchInfo) return;
 
     const { tableId } = searchInfo;
@@ -146,10 +146,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
       lecture,
     }));
 
-    setSchedulesMap(prev => ({
-      ...prev,
-      [tableId]: [...prev[tableId], ...schedules],
-    }));
+    addSchedule(tableId, schedules);
 
     onClose();
   };
@@ -363,7 +360,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
                         <Td width="150px" dangerouslySetInnerHTML={{ __html: lecture.major }} />
                         <Td width="150px" dangerouslySetInnerHTML={{ __html: lecture.schedule }} />
                         <Td width="80px">
-                          <Button size="sm" colorScheme="green" onClick={() => addSchedule(lecture)}>
+                          <Button size="sm" colorScheme="green" onClick={() => handleAddSchedule(lecture)}>
                             추가
                           </Button>
                         </Td>
