@@ -1,30 +1,22 @@
-import { Box, Button, Table, Tbody, Td, Text, Th, Thead, Tr } from '@chakra-ui/react';
+import { Box, Table, Tbody, Text, Th, Thead, Tr } from '@chakra-ui/react';
 import { useSearchStore } from '../../model';
 import { useShallow } from 'zustand/shallow';
-import { useEffect, useRef, useState } from 'react';
-import { Lecture } from '../../../types';
-import { parseSchedule } from '../../../utils';
-import { useScheduleStore } from '../../../schedule';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLecture } from '../../../lecture';
 import { getFilteredLectures } from '../../../lecture/lib';
+import ResultRow from './ResultRow';
 
 const PAGE_SIZE = 100;
 
-interface Props {
-  onClose: () => void;
-}
-
-const SearchResult = ({ onClose }: Props) => {
+const SearchResult = () => {
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1);
 
   const { lectures } = useLecture();
 
-  const addSchedule = useScheduleStore(state => state.addSchedule);
-  const { tableId, ...searchOptions } = useSearchStore(
+  const { ...searchOptions } = useSearchStore(
     useShallow(state => ({
-      tableId: state.tableId,
       query: state.query,
       grades: state.grades,
       days: state.days,
@@ -34,9 +26,9 @@ const SearchResult = ({ onClose }: Props) => {
     })),
   );
 
-  const filteredLectures = getFilteredLectures(searchOptions, lectures);
-  const lastPage = Math.ceil(filteredLectures.length / PAGE_SIZE);
-  const visibleLectures = filteredLectures.slice(0, page * PAGE_SIZE);
+  const filteredLectures = useMemo(() => getFilteredLectures(searchOptions, lectures), [searchOptions, lectures]);
+  const lastPage = useMemo(() => Math.ceil(filteredLectures.length / PAGE_SIZE), [filteredLectures]);
+  const visibleLectures = useMemo(() => filteredLectures.slice(0, page * PAGE_SIZE), [filteredLectures, page]);
 
   useEffect(() => {
     const $loader = loaderRef.current;
@@ -62,25 +54,8 @@ const SearchResult = ({ onClose }: Props) => {
 
   useEffect(() => {
     setPage(1);
-  }, []);
-
-  useEffect(() => {
-    setPage(1);
     loaderWrapperRef.current?.scrollTo(0, 0);
   }, [searchOptions]);
-
-  const handleAddSchedule = (lecture: Lecture) => {
-    if (!tableId) return;
-
-    const schedules = parseSchedule(lecture.schedule).map(schedule => ({
-      ...schedule,
-      lecture,
-    }));
-
-    addSchedule(tableId, schedules);
-
-    onClose();
-  };
 
   return (
     <>
@@ -104,19 +79,7 @@ const SearchResult = ({ onClose }: Props) => {
           <Table size="sm" variant="striped">
             <Tbody>
               {visibleLectures.map((lecture, index) => (
-                <Tr key={`${lecture.id}-${index}`}>
-                  <Td width="100px">{lecture.id}</Td>
-                  <Td width="50px">{lecture.grade}</Td>
-                  <Td width="200px">{lecture.title}</Td>
-                  <Td width="50px">{lecture.credits}</Td>
-                  <Td width="150px" dangerouslySetInnerHTML={{ __html: lecture.major }} />
-                  <Td width="150px" dangerouslySetInnerHTML={{ __html: lecture.schedule }} />
-                  <Td width="80px">
-                    <Button size="sm" colorScheme="green" onClick={() => handleAddSchedule(lecture)}>
-                      추가
-                    </Button>
-                  </Td>
-                </Tr>
+                <ResultRow key={`${lecture.id}-${index}`} lecture={lecture} />
               ))}
             </Tbody>
           </Table>

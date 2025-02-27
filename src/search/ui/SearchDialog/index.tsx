@@ -24,12 +24,8 @@ const SearchDialog = () => {
     })),
   );
 
-  const handleClose = () => {
-    setTableId();
-  };
-
   return (
-    <Modal isOpen={Boolean(tableId)} onClose={handleClose} size="6xl">
+    <Modal isOpen={Boolean(tableId)} onClose={() => setTableId()} size="6xl">
       <ModalOverlay />
       <ModalContent maxW="90vw" w="1000px">
         <ModalHeader>수업 검색</ModalHeader>
@@ -38,7 +34,7 @@ const SearchDialog = () => {
           <VStack spacing={4} align="stretch">
             <Suspense fallback={<>loading...</>}>
               <SearchFilter />
-              <SearchResult onClose={handleClose} />
+              <SearchResult />
             </Suspense>
           </VStack>
         </ModalBody>
