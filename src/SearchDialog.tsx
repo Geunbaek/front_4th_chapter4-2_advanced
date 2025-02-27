@@ -34,13 +34,11 @@ import { parseSchedule } from './utils.ts';
 import { DAY_LABELS } from './constants.ts';
 import { useLecture } from './lecture/index.ts';
 import { useScheduleStore } from './schedule/index.ts';
+import { useSearchStore } from './search/model/useSearchStore.ts';
+import { useShallow } from 'zustand/shallow';
 
 interface Props {
-  searchInfo: {
-    tableId: string;
-    day?: string;
-    time?: number;
-  } | null;
+  tableId?: string;
   onClose: () => void;
 }
 
@@ -82,64 +80,65 @@ const TIME_SLOTS = [
 
 const PAGE_SIZE = 100;
 
+const getFilteredLectures = (searchOptions: SearchOption, lectures: Lecture[]) => {
+  const { query = '', credits, grades, days, times, majors } = searchOptions;
+  return lectures
+    .filter(
+      lecture =>
+        lecture.title.toLowerCase().includes(query.toLowerCase()) ||
+        lecture.id.toLowerCase().includes(query.toLowerCase()),
+    )
+    .filter(lecture => grades.length === 0 || grades.includes(lecture.grade))
+    .filter(lecture => majors.length === 0 || majors.includes(lecture.major))
+    .filter(lecture => !credits || lecture.credits.startsWith(String(credits)))
+    .filter(lecture => {
+      if (days.length === 0) {
+        return true;
+      }
+      const schedules = lecture.schedule ? parseSchedule(lecture.schedule) : [];
+      return schedules.some(s => days.includes(s.day));
+    })
+    .filter(lecture => {
+      if (times.length === 0) {
+        return true;
+      }
+      const schedules = lecture.schedule ? parseSchedule(lecture.schedule) : [];
+      return schedules.some(s => s.range.some(time => times.includes(time)));
+    });
+};
+
 // TODO: 이 컴포넌트에서 불필요한 연산이 발생하지 않도록 다양한 방식으로 시도해주세요.
-const SearchDialog = ({ searchInfo, onClose }: Props) => {
+const SearchDialog = ({ tableId, onClose }: Props) => {
   const addSchedule = useScheduleStore(state => state.addSchedule);
 
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const { lectures } = useLecture();
   const [page, setPage] = useState(1);
-  const [searchOptions, setSearchOptions] = useState<SearchOption>({
-    query: '',
-    grades: [],
-    days: [],
-    times: [],
-    majors: [],
-  });
+  const { setQuery, setCredits, setDays, setGrades, setMajors, setTimes, ...searchOptions } = useSearchStore(
+    useShallow(state => ({
+      query: state.query,
+      credits: state.credits,
+      grades: state.grades,
+      days: state.days,
+      times: state.times,
+      majors: state.majors,
+      setQuery: state.setQuery,
+      setCredits: state.setCredits,
+      setDays: state.setDays,
+      setGrades: state.setGrades,
+      setMajors: state.setMajors,
+      setTimes: state.setTimes,
+    })),
+  );
 
-  const getFilteredLectures = () => {
-    const { query = '', credits, grades, days, times, majors } = searchOptions;
-    return lectures
-      .filter(
-        lecture =>
-          lecture.title.toLowerCase().includes(query.toLowerCase()) ||
-          lecture.id.toLowerCase().includes(query.toLowerCase()),
-      )
-      .filter(lecture => grades.length === 0 || grades.includes(lecture.grade))
-      .filter(lecture => majors.length === 0 || majors.includes(lecture.major))
-      .filter(lecture => !credits || lecture.credits.startsWith(String(credits)))
-      .filter(lecture => {
-        if (days.length === 0) {
-          return true;
-        }
-        const schedules = lecture.schedule ? parseSchedule(lecture.schedule) : [];
-        return schedules.some(s => days.includes(s.day));
-      })
-      .filter(lecture => {
-        if (times.length === 0) {
-          return true;
-        }
-        const schedules = lecture.schedule ? parseSchedule(lecture.schedule) : [];
-        return schedules.some(s => s.range.some(time => times.includes(time)));
-      });
-  };
-
-  const filteredLectures = getFilteredLectures();
+  const filteredLectures = getFilteredLectures(searchOptions, lectures);
   const lastPage = Math.ceil(filteredLectures.length / PAGE_SIZE);
   const visibleLectures = filteredLectures.slice(0, page * PAGE_SIZE);
   const allMajors = [...new Set(lectures.map(lecture => lecture.major))];
 
-  const changeSearchOption = (field: keyof SearchOption, value: SearchOption[typeof field]) => {
-    setPage(1);
-    setSearchOptions({ ...searchOptions, [field]: value });
-    loaderWrapperRef.current?.scrollTo(0, 0);
-  };
-
   const handleAddSchedule = (lecture: Lecture) => {
-    if (!searchInfo) return;
-
-    const { tableId } = searchInfo;
+    if (!tableId) return;
 
     const schedules = parseSchedule(lecture.schedule).map(schedule => ({
       ...schedule,
@@ -174,16 +173,16 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
   }, [lastPage]);
 
   useEffect(() => {
-    setSearchOptions(prev => ({
-      ...prev,
-      days: searchInfo?.day ? [searchInfo.day] : [],
-      times: searchInfo?.time ? [searchInfo.time] : [],
-    }));
     setPage(1);
-  }, [searchInfo]);
+  }, [tableId]);
+
+  useEffect(() => {
+    setPage(1);
+    loaderWrapperRef.current?.scrollTo(0, 0);
+  }, [searchOptions]);
 
   return (
-    <Modal isOpen={Boolean(searchInfo)} onClose={onClose} size="6xl">
+    <Modal isOpen={Boolean(tableId)} onClose={onClose} size="6xl">
       <ModalOverlay />
       <ModalContent maxW="90vw" w="1000px">
         <ModalHeader>수업 검색</ModalHeader>
@@ -196,13 +195,16 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
                 <Input
                   placeholder="과목명 또는 과목코드"
                   value={searchOptions.query}
-                  onChange={e => changeSearchOption('query', e.target.value)}
+                  onChange={e => setQuery(e.target.value)}
                 />
               </FormControl>
 
               <FormControl>
                 <FormLabel>학점</FormLabel>
-                <Select value={searchOptions.credits} onChange={e => changeSearchOption('credits', e.target.value)}>
+                <Select
+                  value={searchOptions.credits}
+                  onChange={e => setCredits(e.target.value ? Number(e.target.value) : undefined)}
+                >
                   <option value="">전체</option>
                   <option value="1">1학점</option>
                   <option value="2">2학점</option>
@@ -214,10 +216,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
             <HStack spacing={4}>
               <FormControl>
                 <FormLabel>학년</FormLabel>
-                <CheckboxGroup
-                  value={searchOptions.grades}
-                  onChange={value => changeSearchOption('grades', value.map(Number))}
-                >
+                <CheckboxGroup value={searchOptions.grades} onChange={value => setGrades(value.map(Number))}>
                   <HStack spacing={4}>
                     {[1, 2, 3, 4].map(grade => (
                       <Checkbox key={grade} value={grade}>
@@ -230,10 +229,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
 
               <FormControl>
                 <FormLabel>요일</FormLabel>
-                <CheckboxGroup
-                  value={searchOptions.days}
-                  onChange={value => changeSearchOption('days', value as string[])}
-                >
+                <CheckboxGroup value={searchOptions.days} onChange={value => setDays(value as string[])}>
                   <HStack spacing={4}>
                     {DAY_LABELS.map(day => (
                       <Checkbox key={day} value={day}>
@@ -251,7 +247,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
                 <CheckboxGroup
                   colorScheme="green"
                   value={searchOptions.times}
-                  onChange={values => changeSearchOption('times', values.map(Number))}
+                  onChange={values => setTimes(values.map(Number))}
                 >
                   <Wrap spacing={1} mb={2}>
                     {searchOptions.times
@@ -259,14 +255,7 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
                       .map(time => (
                         <Tag key={time} size="sm" variant="outline" colorScheme="blue">
                           <TagLabel>{time}교시</TagLabel>
-                          <TagCloseButton
-                            onClick={() =>
-                              changeSearchOption(
-                                'times',
-                                searchOptions.times.filter(v => v !== time),
-                              )
-                            }
-                          />
+                          <TagCloseButton onClick={() => setTimes(searchOptions.times.filter(v => v !== time))} />
                         </Tag>
                       ))}
                   </Wrap>
@@ -295,20 +284,13 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
                 <CheckboxGroup
                   colorScheme="green"
                   value={searchOptions.majors}
-                  onChange={values => changeSearchOption('majors', values as string[])}
+                  onChange={values => setMajors(values as string[])}
                 >
                   <Wrap spacing={1} mb={2}>
                     {searchOptions.majors.map(major => (
                       <Tag key={major} size="sm" variant="outline" colorScheme="blue">
                         <TagLabel>{major.split('<p>').pop()}</TagLabel>
-                        <TagCloseButton
-                          onClick={() =>
-                            changeSearchOption(
-                              'majors',
-                              searchOptions.majors.filter(v => v !== major),
-                            )
-                          }
-                        />
+                        <TagCloseButton onClick={() => setMajors(searchOptions.majors.filter(v => v !== major))} />
                       </Tag>
                     ))}
                   </Wrap>

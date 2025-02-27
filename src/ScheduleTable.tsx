@@ -22,7 +22,7 @@ import { ComponentProps, Fragment } from 'react';
 interface Props {
   tableId: string;
   schedules: Schedule[];
-  onScheduleTimeClick?: (timeInfo: { day: string; time: number }) => void;
+  onScheduleTimeClick?: (tableId: string, timeInfo: { day: string; time: number }) => void;
   onDeleteButtonClick?: (timeInfo: { day: string; time: number }) => void;
 }
 
@@ -38,13 +38,13 @@ const TIMES = [
     .map(v => `${parseHnM(v)}~${parseHnM(v + 50 * 분)}`),
 ] as const;
 
-const ScheduleTable = ({ tableId, schedules, onScheduleTimeClick, onDeleteButtonClick }: Props) => {
-  const getColor = (lectureId: string): string => {
-    const lectures = [...new Set(schedules.map(({ lecture }) => lecture.id))];
-    const colors = ['#fdd', '#ffd', '#dff', '#ddf', '#fdf', '#dfd'];
-    return colors[lectures.indexOf(lectureId) % colors.length];
-  };
+const getColor = (lectureId: string, schedules: Schedule[]): string => {
+  const lectures = [...new Set(schedules.map(({ lecture }) => lecture.id))];
+  const colors = ['#fdd', '#ffd', '#dff', '#ddf', '#fdf', '#dfd'];
+  return colors[lectures.indexOf(lectureId) % colors.length];
+};
 
+const ScheduleTable = ({ tableId, schedules, onScheduleTimeClick, onDeleteButtonClick }: Props) => {
   const dndContext = useDndContext();
 
   const getActiveTableId = () => {
@@ -97,7 +97,7 @@ const ScheduleTable = ({ tableId, schedules, onScheduleTimeClick, onDeleteButton
                 bg={timeIndex > 17 ? 'gray.100' : 'white'}
                 cursor="pointer"
                 _hover={{ bg: 'yellow.100' }}
-                onClick={() => onScheduleTimeClick?.({ day, time: timeIndex + 1 })}
+                onClick={() => onScheduleTimeClick?.(tableId, { day, time: timeIndex + 1 })}
               />
             ))}
           </Fragment>
@@ -109,7 +109,7 @@ const ScheduleTable = ({ tableId, schedules, onScheduleTimeClick, onDeleteButton
           key={`${schedule.lecture.title}-${index}`}
           id={`${tableId}:${index}`}
           data={schedule}
-          bg={getColor(schedule.lecture.id)}
+          bg={getColor(schedule.lecture.id, schedules)}
           onDeleteButtonClick={() =>
             onDeleteButtonClick?.({
               day: schedule.day,

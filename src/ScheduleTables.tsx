@@ -1,9 +1,9 @@
 import { Button, ButtonGroup, Flex, Heading, Stack } from '@chakra-ui/react';
 import ScheduleTable from './ScheduleTable.tsx';
 import SearchDialog from './SearchDialog.tsx';
-import { useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useScheduleStore } from './schedule/index.ts';
+import { useSearchStore } from './search/index.ts';
 
 export const ScheduleTables = () => {
   const { schedulesMap, removeSchedule, removeSchedules, duplicateSchedules } = useScheduleStore(
@@ -15,14 +15,22 @@ export const ScheduleTables = () => {
     })),
   );
 
-  const [searchInfo, setSearchInfo] = useState<{
-    tableId: string;
-    day?: string;
-    time?: number;
-  } | null>(null);
+  const { tableId, setTableId, setDays, setTimes } = useSearchStore(
+    useShallow(state => ({
+      tableId: state.tableId,
+      setTableId: state.setTableId,
+      setDays: state.setDays,
+      setTimes: state.setTimes,
+    })),
+  );
 
   const disabledRemoveButton = Object.keys(schedulesMap).length === 1;
 
+  const handleScheduleTimeClick = (tableId: string, timeInfo: { day: string; time: number }) => {
+    setTableId(tableId);
+    setDays([timeInfo.day]);
+    setTimes([timeInfo.time]);
+  };
   return (
     <>
       <Flex w="full" gap={6} p={6} flexWrap="wrap">
@@ -33,7 +41,7 @@ export const ScheduleTables = () => {
                 시간표 {index + 1}
               </Heading>
               <ButtonGroup size="sm" isAttached>
-                <Button colorScheme="green" onClick={() => setSearchInfo({ tableId })}>
+                <Button colorScheme="green" onClick={() => setTableId(tableId)}>
                   시간표 추가
                 </Button>
                 <Button colorScheme="green" mx="1px" onClick={() => duplicateSchedules(tableId)}>
@@ -48,13 +56,13 @@ export const ScheduleTables = () => {
               key={`schedule-table-${index}`}
               schedules={schedules}
               tableId={tableId}
-              onScheduleTimeClick={timeInfo => setSearchInfo({ tableId, ...timeInfo })}
+              onScheduleTimeClick={handleScheduleTimeClick}
               onDeleteButtonClick={({ day, time }) => removeSchedule(tableId, day, time)}
             />
           </Stack>
         ))}
       </Flex>
-      <SearchDialog searchInfo={searchInfo} onClose={() => setSearchInfo(null)} />
+      <SearchDialog tableId={tableId} onClose={() => setTableId()} />
     </>
   );
 };
