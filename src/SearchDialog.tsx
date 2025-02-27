@@ -32,8 +32,8 @@ import {
 import { useScheduleContext } from './ScheduleContext.tsx';
 import { Lecture } from './types.ts';
 import { parseSchedule } from './utils.ts';
-import axios from 'axios';
 import { DAY_LABELS } from './constants.ts';
+import { useLecture } from './lecture/index.ts';
 
 interface Props {
   searchInfo: {
@@ -82,27 +82,13 @@ const TIME_SLOTS = [
 
 const PAGE_SIZE = 100;
 
-const fetchMajors = () => axios.get<Lecture[]>('/schedules-majors.json');
-const fetchLiberalArts = () => axios.get<Lecture[]>('/schedules-liberal-arts.json');
-
-// TODO: 이 코드를 개선해서 API 호출을 최소화 해보세요 + Promise.all이 현재 잘못 사용되고 있습니다. 같이 개선해주세요.
-const fetchAllLectures = async () =>
-  await Promise.all([
-    (console.log('API Call 1', performance.now()), await fetchMajors()),
-    (console.log('API Call 2', performance.now()), await fetchLiberalArts()),
-    (console.log('API Call 3', performance.now()), await fetchMajors()),
-    (console.log('API Call 4', performance.now()), await fetchLiberalArts()),
-    (console.log('API Call 5', performance.now()), await fetchMajors()),
-    (console.log('API Call 6', performance.now()), await fetchLiberalArts()),
-  ]);
-
 // TODO: 이 컴포넌트에서 불필요한 연산이 발생하지 않도록 다양한 방식으로 시도해주세요.
 const SearchDialog = ({ searchInfo, onClose }: Props) => {
   const { setSchedulesMap } = useScheduleContext();
 
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
-  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const { lectures } = useLecture();
   const [page, setPage] = useState(1);
   const [searchOptions, setSearchOptions] = useState<SearchOption>({
     query: '',
@@ -167,17 +153,6 @@ const SearchDialog = ({ searchInfo, onClose }: Props) => {
 
     onClose();
   };
-
-  useEffect(() => {
-    const start = performance.now();
-    console.log('API 호출 시작: ', start);
-    fetchAllLectures().then(results => {
-      const end = performance.now();
-      console.log('모든 API 호출 완료 ', end);
-      console.log('API 호출에 걸린 시간(ms): ', end - start);
-      setLectures(results.flatMap(result => result.data));
-    });
-  }, []);
 
   useEffect(() => {
     const $loader = loaderRef.current;

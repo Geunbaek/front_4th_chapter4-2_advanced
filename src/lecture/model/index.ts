@@ -1,0 +1,1 @@
+export { useLecture } from './useLecture';
