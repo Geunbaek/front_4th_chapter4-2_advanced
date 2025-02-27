@@ -1,9 +1,9 @@
 import { DndContext, Modifier, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { PropsWithChildren } from 'react';
 import { CellSize, DAY_LABELS } from './constants.ts';
-import { useShallow } from 'zustand/shallow';
 import { Schedule } from './types.ts';
-import { useScheduleStore } from './schedule/index.ts';
+import { useScheduleStore } from './schedule/model/useScheduleStore.ts';
+import { useShallow } from 'zustand/shallow';
 
 function createSnapModifier(): Modifier {
   return ({ transform, containerNodeRect, draggingNodeRect }) => {
@@ -29,13 +29,14 @@ function createSnapModifier(): Modifier {
 
 const modifiers = [createSnapModifier()];
 
-export default function ScheduleDndProvider({ children }: PropsWithChildren) {
-  const { schedulesMap, updateSchedule } = useScheduleStore(
+export default function ScheduleDndProvider({ tableId, children }: PropsWithChildren<{ tableId: string }>) {
+  const { schedules, updateSchedule } = useScheduleStore(
     useShallow(state => ({
-      schedulesMap: state.schedulesMap,
+      schedules: state.schedulesMap[tableId],
       updateSchedule: state.updateSchedule,
     })),
   );
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -49,7 +50,7 @@ export default function ScheduleDndProvider({ children }: PropsWithChildren) {
     const { active, delta } = event;
     const { x, y } = delta;
     const [tableId, index] = active.id.split(':');
-    const schedule = schedulesMap[tableId][index];
+    const schedule = schedules[index];
     const nowDayIndex = DAY_LABELS.indexOf(schedule.day as (typeof DAY_LABELS)[number]);
     const moveDayIndex = Math.floor(x / 80);
     const moveTimeIndex = Math.floor(y / 30);

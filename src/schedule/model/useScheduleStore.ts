@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Schedule } from '../../types.ts';
-import dummyScheduleMap from '../../dummyScheduleMap.ts';
+import dummyScheduleMap from './dummyScheduleMap.ts';
 
 type SchedulesMap = Record<string, Schedule[]>;
 
